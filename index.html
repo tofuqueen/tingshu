@@ -315,22 +315,66 @@ async function openBook(id) {
   const cur = ul.querySelector('.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
 }
 $('#chBack').onclick = () => openLibrary();
-$('#dlBtn').onclick = async () => {
+const mbOf = list => Math.max(1, Math.round(list.reduce((a, c) => a + (c.dur || 0), 0) * 4 / 1024));   // 32kbps ≈ 4KB/秒
+const dotOf = n => $('#chList').children[n - state.book.chapters[0].n]?.querySelector('.c');
+async function downloadChapters(list) {
   const btn = $('#dlBtn'), book = state.book;
-  if (btn.dataset.busy) { state.dlAbort = true; return; }
-  const mb = Math.round(book.chapters.reduce((a, c) => a + (c.dur || 0), 0) * 4 / 1024);
-  if (!confirm(`把全书下载到手机上，没网也能听。\n大约 ${mb} MB，建议连着 Wi-Fi。\n下载中可以随时点按钮停止，已下载的会保留。`)) return;
   btn.dataset.busy = 1; state.dlAbort = false;
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   let done = 0;
-  for (const c of book.chapters) {
+  for (const c of list) {
     if (state.dlAbort) break;
     try { await getFile(chPath(book.id, c.n)); await getFile(mp3Path(book.id, c.n)); } catch (e) { toast(`第 ${c.n} 章下载失败：${e.message}`); break; }
-    done++; btn.textContent = `停止 ${done}/${book.chapters.length}`;
-    const dot = $('#chList').children[c.n - book.chapters[0].n]?.querySelector('.c'); if (dot) dot.classList.add('yes');
+    done++; btn.textContent = `停止 ${done}/${list.length}`;
+    const dot = dotOf(c.n); if (dot) dot.classList.add('yes');
   }
   delete btn.dataset.busy; btn.textContent = '下载离线';
-  toast(done === book.chapters.length ? '全书已下载，可以离线听了' : `已下载 ${done} 章`);
+  toast(done === list.length ? `已下载 ${done} 章，可以离线听了` : `已下载 ${done} 章`);
+}
+async function removeDownloads(list) {
+  if (!('caches' in self)) return;
+  const cache = await caches.open(CACHE), book = state.book;
+  for (const c of list) {
+    await cache.delete(keyFor(chPath(book.id, c.n))); await cache.delete(keyFor(mp3Path(book.id, c.n)));
+    const dot = dotOf(c.n); if (dot) dot.classList.remove('yes');
+  }
+  toast(`已删除 ${list.length} 章的下载`);
+}
+$('#dlBtn').onclick = async () => {
+  const btn = $('#dlBtn'), book = state.book, all = book.chapters;
+  if (btn.dataset.busy) { state.dlAbort = true; return; }
+  const p = progress[book.id], curN = p ? p.n : all[0].n;
+  const from = n => all.filter(c => c.n >= curN).slice(0, n);
+  const cachedFlags = await Promise.all(all.map(c => isCached(mp3Path(book.id, c.n))));
+  const cached = all.filter((c, i) => cachedFlags[i]);
+  const listened = cached.filter(c => c.n < curN);
+  const opt = (v, label, list) => `<button data-v="${v}">${label}<br><small class="muted">约 ${mbOf(list)} MB</small></button>`;
+  openSheet(`<h3>下载离线</h3>
+    <p class="muted" style="text-align:center;margin:-4px 0 12px">已下载 ${cached.length} 章（约 ${cached.length ? mbOf(cached) : 0} MB），建议连 Wi-Fi 下载</p>
+    <div class="chips">${opt('n10', `从第 ${curN} 章起 10 章`, from(10))}${opt('n30', '30 章', from(30))}${opt('n50', '50 章', from(50))}${opt('all', '全书', all)}</div>
+    <h3>自选范围</h3>
+    <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:14px">
+      第<input id="dlFrom" class="field" type="number" inputmode="numeric" min="1" style="width:76px;margin:0" value="${curN}">章 到
+      第<input id="dlTo" class="field" type="number" inputmode="numeric" min="1" style="width:76px;margin:0" value="${Math.min(curN + 19, all[all.length - 1].n)}">章
+      <button class="primary" id="dlRange" style="padding:10px 14px">下载</button></div>
+    <h3>清理空间</h3>
+    <div class="chips"><button data-v="rmDone" ${listened.length ? '' : 'disabled style="opacity:.4"'}>删除已听完的 ${listened.length} 章</button><button data-v="rmAll" ${cached.length ? '' : 'disabled style="opacity:.4"'}>删除全部下载</button></div>`, s => {
+    const go = list => { closeSheet(); const todo = list.filter(c => !cached.includes(c)); if (!todo.length) return toast('这些章节已经下载过了'); downloadChapters(todo); };
+    s.querySelectorAll('button[data-v]').forEach(b => b.onclick = () => {
+      const v = b.dataset.v;
+      if (v === 'n10') go(from(10)); else if (v === 'n30') go(from(30)); else if (v === 'n50') go(from(50)); else if (v === 'all') go(all);
+      else if (v === 'rmDone') { closeSheet(); removeDownloads(listened); }
+      else if (v === 'rmAll' && confirm(`删除全部 ${cached.length} 章的下载？删除后在线还能继续听。`)) { closeSheet(); removeDownloads(cached); }
+    });
+    s.querySelector('#dlRange').onclick = () => {
+      let a = parseInt(s.querySelector('#dlFrom').value, 10), b = parseInt(s.querySelector('#dlTo').value, 10);
+      if (!a || !b) return toast('请填写章节号');
+      if (a > b) [a, b] = [b, a];
+      const list = all.filter(c => c.n >= a && c.n <= b);
+      if (!list.length) return toast('这个范围里没有章节');
+      go(list);
+    };
+  });
 };
 
 /* ---------- 阅读 + 播放 ---------- */
