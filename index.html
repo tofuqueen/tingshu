@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="听书">
+<meta name="theme-color" content="#f5efe3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151412" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>听书</title>
+<style>
+:root {
+  --bg: #f5efe3; --surface: #fffaf1; --text: #2a251f; --muted: #8a8073; --line: #e4dccd;
+  --accent: #b5532f; --accent-ink: #fff; --hl: #f3d9a8; --hl-text: #2a251f; --shadow: 0 6px 24px rgba(60,40,10,.12);
+  --font: 19px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151412; --surface: #1f1d1a; --text: #d8d2c7; --muted: #8d877c; --line: #2e2b27;
+    --accent: #e0835c; --accent-ink: #1a1410; --hl: #4a3a22; --hl-text: #f3e8d6; --shadow: 0 6px 24px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151412; --surface: #1f1d1a; --text: #d8d2c7; --muted: #8d877c; --line: #2e2b27;
+  --accent: #e0835c; --accent-ink: #1a1410; --hl: #4a3a22; --hl-text: #f3e8d6; --shadow: 0 6px 24px rgba(0,0,0,.5);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 16px/1.5 -apple-system, "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif; min-height: 100dvh; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+input { font: inherit; }
+.view { display: none; min-height: 100dvh; }
+.view.on { display: block; }
+.top { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
+.top h1 { font-size: 17px; margin: 0; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.icon-btn { width: 40px; height: 40px; border-radius: 20px; display: grid; place-items: center; flex: none; }
+.icon-btn:active { background: var(--line); }
+.icon-btn svg { width: 24px; height: 24px; }
+.wrap { padding: 16px; max-width: 720px; margin: 0 auto; }
+.card { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
+.muted { color: var(--muted); font-size: 14px; }
+.primary { background: var(--accent); color: var(--accent-ink); border-radius: 12px; padding: 12px 18px; font-weight: 600; }
+.ghost { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.field { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); margin: 8px 0 12px; }
+
+/* 书架 */
+.book { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+.cover { width: 64px; height: 88px; border-radius: 8px; flex: none; display: grid; place-items: center; padding: 6px;
+  background: linear-gradient(160deg, #7a3b23, #b5532f); color: #fff6e6; font-size: 13px; line-height: 1.3; text-align: center; font-weight: 600; }
+.book .meta { flex: 1; min-width: 0; }
+.book .title { font-weight: 600; font-size: 17px; }
+.bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); }
+
+/* 章节列表 */
+.ch-actions { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.chlist { list-style: none; margin: 0; padding: 0; }
+.chlist li { display: flex; align-items: center; gap: 10px; padding: 13px 4px; border-bottom: 1px solid var(--line); }
+.chlist li .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chlist li.done .t { color: var(--muted); }
+.chlist li.cur .t { color: var(--accent); font-weight: 600; }
+.chlist li .d { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.chlist li .c { width: 8px; height: 8px; border-radius: 4px; flex: none; }
+.chlist li .c.yes { background: var(--accent); opacity: .55; }
+
+/* 阅读页 */
+#reader .top h1 { font-size: 15px; }
+#text { padding: 16px 20px calc(190px + env(safe-area-inset-bottom)); max-width: 720px; margin: 0 auto;
+  font-size: var(--font); line-height: 1.9; letter-spacing: .02em; }
+#text p { margin: 0 0 .7em; text-indent: 2em; }
+#text p.h { text-indent: 0; font-weight: 700; font-size: 1.2em; margin: .4em 0 1em; }
+#text span { border-radius: 4px; transition: background .2s; }
+#text span.now { background: var(--hl); color: var(--hl-text); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.loading { text-align: center; padding: 60px 0; color: var(--muted); }
+#locate { position: fixed; right: 16px; bottom: calc(176px + env(safe-area-inset-bottom)); z-index: 6; display: none;
+  background: var(--surface); box-shadow: var(--shadow); border-radius: 20px; padding: 8px 14px; font-size: 14px; }
+#locate.on { display: block; }
+
+.player { position: fixed; left: 0; right: 0; bottom: 0; z-index: 7; background: var(--surface); box-shadow: 0 -4px 20px rgba(0,0,0,.08);
+  border-radius: 18px 18px 0 0; padding: 10px 16px calc(env(safe-area-inset-bottom) + 10px); }
+.player .inner { max-width: 720px; margin: 0 auto; }
+.seek { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.seek input { flex: 1; accent-color: var(--accent); height: 28px; }
+.ctrls { display: flex; justify-content: space-between; align-items: center; margin: 2px 0 6px; }
+.ctrls .icon-btn { width: 48px; height: 48px; }
+.ctrls .icon-btn svg { width: 28px; height: 28px; }
+.play { width: 64px; height: 64px; border-radius: 32px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+.play svg { width: 30px; height: 30px; }
+.opts { display: flex; justify-content: space-around; font-size: 14px; color: var(--muted); }
+.opts button { padding: 6px 10px; border-radius: 10px; }
+.opts button.act { color: var(--accent); font-weight: 600; }
+
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; display: none; }
+.sheet-bg.on { display: block; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--surface); border-radius: 18px 18px 0 0;
+  padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px); transform: translateY(105%); transition: transform .25s; max-width: 720px; margin: 0 auto; }
+.sheet.on { transform: none; }
+.sheet h3 { margin: 0 0 12px; font-size: 16px; text-align: center; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 14px; }
+.chips button { border: 1px solid var(--line); border-radius: 20px; padding: 8px 16px; }
+.chips button.act { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 70px); transform: translateX(-50%); z-index: 30; background: var(--text); color: var(--bg);
+  padding: 8px 16px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+.toast.on { opacity: .92; }
+</style>
+</head>
+<body>
+
+<!-- 设置 -->
+<section id="setup" class="view">
+  <div class="top"><h1>设置</h1></div>
+  <div class="wrap">
+    <div class="card">
+      <p style="margin-top:0">书的文字和音频存在你的私有 GitHub 仓库里。第一次使用时，需要填一个只能读取这个仓库的 GitHub 令牌，之后就不用再填了。</p>
+      <label class="muted">GitHub 令牌（github_pat_ 开头）</label>
+      <input id="tokenIn" class="field" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_...">
+      <details class="muted" style="margin-bottom:14px"><summary>高级</summary>
+        <label>仓库</label><input id="repoIn" class="field" autocapitalize="off" spellcheck="false">
+        <label>分支</label><input id="branchIn" class="field" autocapitalize="off" spellcheck="false">
+      </details>
+      <button class="primary" id="saveCfg" style="width:100%">保存并连接</button>
+      <p class="muted" id="setupMsg"></p>
+    </div>
+  </div>
+</section>
+
+<!-- 书架 -->
+<section id="library" class="view">
+  <div class="top"><span class="icon-btn"></span><h1>我的书架</h1>
+    <button class="icon-btn" id="toSetup" aria-label="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+  <div class="wrap" id="books"><div class="loading">加载中…</div></div>
+</section>
+
+<!-- 章节 -->
+<section id="chapters" class="view">
+  <div class="top"><button class="icon-btn" id="chBack" aria-label="返回"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <h1 id="chTitle"></h1><span class="icon-btn"></span></div>
+  <div class="wrap">
+    <div class="ch-actions">
+      <button class="primary" id="resumeBtn" style="flex:1">继续听</button>
+      <button class="ghost" id="dlBtn">下载离线</button>
+    </div>
+    <p class="muted" id="bookInfo" style="margin-top:0"></p>
+    <ul class="chlist" id="chList"></ul>
+  </div>
+</section>
+
+<!-- 阅读 + 播放 -->
+<section id="reader" class="view">
+  <div class="top">
+    <button class="icon-btn" id="rdBack" aria-label="章节列表"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <h1 id="rdTitle"></h1>
+    <button class="icon-btn" id="fontBtn" aria-label="字体与主题" style="font-weight:600">Aa</button>
+  </div>
+  <div id="text"></div>
+  <button id="locate">↓ 回到正在读的地方</button>
+  <div class="player"><div class="inner">
+    <div class="seek"><span id="tCur">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="进度"><span id="tDur">0:00</span></div>
+    <div class="ctrls">
+      <button class="icon-btn" id="prevCh" aria-label="上一章"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="icon-btn" id="back15" aria-label="后退15秒"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><text x="12" y="15.5" font-size="7.5" text-anchor="middle" fill="currentColor" stroke="none" font-weight="700">15</text></svg></button>
+      <button class="play" id="playBtn" aria-label="播放"><svg id="playIco" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg></button>
+      <button class="icon-btn" id="fwd30" aria-label="快进30秒"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/><text x="12" y="15.5" font-size="7.5" text-anchor="middle" fill="currentColor" stroke="none" font-weight="700">30</text></svg></button>
+      <button class="icon-btn" id="nextCh" aria-label="下一章"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    </div>
+    <div class="opts">
+      <button id="speedBtn">1.0×</button>
+      <button id="sleepBtn">定时</button>
+      <button id="followBtn" class="act">跟读</button>
+    </div>
+  </div></div>
+</section>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+<audio id="audio" preload="auto" playsinline></audio>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const params = new URLSearchParams(location.search);
+const LOCAL = params.has('local');                  // 本地测试：直接从同一服务器读 ../books/
+let cfg = Object.assign({ repo: 'tofuqueen/audio-book', branch: 'main', token: '' }, store.get('ab.cfg', {}));
+let prefs = Object.assign({ rate: 1, font: 19, theme: 'auto', follow: true }, store.get('ab.prefs', {}));
+let progress = store.get('ab.progress', {});          // { bookId: { n, t } }
+const audio = $('#audio');
+const state = { book: null, n: 0, ch: null, segs: [], spans: [], cur: -1, url: null, next: null, sleepAt: 0, sleepEnd: false, dlAbort: false };
+
+/* ---------- 数据读取（带离线缓存） ---------- */
+const CACHE = 'ab-data-v1';
+const keyFor = path => new Request(`https://cache.local/${cfg.repo}/${path}`);
+async function getFile(path, { fresh = false } = {}) {
+  const cache = 'caches' in self ? await caches.open(CACHE) : null;
+  if (cache && !fresh) { const hit = await cache.match(keyFor(path)); if (hit) return hit; }
+  let res;
+  try {
+    if (LOCAL) res = await fetch(`../${path}`, { cache: 'no-store' });
+    else res = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/${path}?ref=${encodeURIComponent(cfg.branch)}`,
+      { headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' });
+  } catch (e) {
+    if (cache) { const hit = await cache.match(keyFor(path)); if (hit) return hit; }
+    throw new Error('网络连接失败');
+  }
+  if (!res.ok) {
+    if (cache) { const hit = await cache.match(keyFor(path)); if (hit) return hit; }
+    throw new Error(res.status === 401 ? '令牌无效或已过期' : res.status === 404 ? '找不到文件（检查令牌权限、仓库和分支）' : `读取失败（${res.status}）`);
+  }
+  if (cache) await cache.put(keyFor(path), res.clone()).catch(() => {});
+  return res;
+}
+const getJSON = async (p, o) => (await getFile(p, o)).json();
+async function isCached(path) { if (!('caches' in self)) return false; return !!(await (await caches.open(CACHE)).match(keyFor(path))); }
+const pad = n => String(n).padStart(4, '0');
+const chPath = (b, n) => `books/${b}/ch/${pad(n)}.json`;
+const mp3Path = (b, n) => `books/${b}/audio/${pad(n)}.mp3`;
+
+/* ---------- 工具 ---------- */
+const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`; };
+let toastT; function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); }
+function show(id) { document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === id)); window.scrollTo(0, 0); }
+function applyPrefs() {
+  document.documentElement.style.setProperty('--font', prefs.font + 'px');
+  if (prefs.theme === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = prefs.theme;
+  audio.playbackRate = prefs.rate; audio.defaultPlaybackRate = prefs.rate;
+  $('#speedBtn').textContent = prefs.rate === 1 ? '1.0×' : `${+prefs.rate.toFixed(2)}×`;
+  $('#followBtn').classList.toggle('act', prefs.follow);
+  store.set('ab.prefs', prefs);
+}
+function saveProgress() {
+  if (!state.book) return;
+  progress[state.book.id] = { n: state.n, t: Math.floor(audio.currentTime || 0), at: Date.now() };
+  store.set('ab.progress', progress);
+}
+
+/* ---------- 设置 ---------- */
+function openSetup(msg) {
+  $('#tokenIn').value = cfg.token; $('#repoIn').value = cfg.repo; $('#branchIn').value = cfg.branch;
+  $('#setupMsg').textContent = msg || ''; show('setup');
+}
+$('#saveCfg').onclick = async () => {
+  cfg = { token: $('#tokenIn').value.trim(), repo: $('#repoIn').value.trim() || 'tofuqueen/audio-book', branch: $('#branchIn').value.trim() || 'main' };
+  $('#setupMsg').textContent = '连接中…';
+  try { await getJSON('books/index.json', { fresh: true }); store.set('ab.cfg', cfg); openLibrary(); }
+  catch (e) { $('#setupMsg').textContent = '连接失败：' + e.message; }
+};
+$('#toSetup').onclick = () => openSetup();
+
+/* ---------- 书架 ---------- */
+async function openLibrary() {
+  show('library');
+  const box = $('#books');
+  try {
+    const list = await getJSON('books/index.json', { fresh: true });
+    box.innerHTML = '';
+    for (const b of list) {
+      const p = progress[b.id];
+      const el = document.createElement('div'); el.className = 'card book';
+      el.innerHTML = `<div class="cover"></div><div class="meta"><div class="title"></div><div class="muted"></div><div class="bar"><i></i></div></div>`;
+      el.querySelector('.cover').textContent = b.title;
+      el.querySelector('.title').textContent = b.title;
+      el.querySelector('.muted').textContent = p ? `听到第 ${p.n} 章 · 共 ${b.total} 章` : `共 ${b.total} 章 · 还没开始`;
+      el.querySelector('.bar i').style.width = `${p ? Math.round(p.n / b.total * 100) : 0}%`;
+      el.onclick = () => openBook(b.id);
+      box.appendChild(el);
+    }
+    if (!list.length) box.innerHTML = '<p class="muted">书架是空的。</p>';
+  } catch (e) {
+    if (!LOCAL && !cfg.token) return openSetup();
+    box.innerHTML = `<p class="muted">加载失败：${e.message}</p><button class="ghost" onclick="openLibrary()">重试</button>`;
+  }
+}
+
+/* ---------- 章节列表 ---------- */
+async function loadBook(id) {
+  if (state.book && state.book.id === id) return state.book;
+  const book = await getJSON(`books/${id}/book.json`);
+  getJSON(`books/${id}/book.json`, { fresh: true }).then(b => { if (state.book && state.book.id === id) state.book = b; }).catch(() => {});
+  state.book = book; return book;
+}
+async function openBook(id) {
+  show('chapters');
+  $('#chList').innerHTML = '<div class="loading">加载中…</div>';
+  let book;
+  try { book = await loadBook(id); } catch (e) { $('#chList').innerHTML = `<p class="muted">加载失败：${e.message}</p>`; return; }
+  $('#chTitle').textContent = book.title;
+  const p = progress[id];
+  const hrs = book.chapters.reduce((a, c) => a + (c.dur || 0), 0) / 3600;
+  $('#bookInfo').textContent = `${book.chapters.length} 章可听${book.chapters.length < book.total ? `（共 ${book.total} 章，其余正在制作）` : ''} · 约 ${hrs.toFixed(0)} 小时`;
+  $('#resumeBtn').textContent = p ? `继续听 第 ${p.n} 章 ${fmt(p.t)}` : '从第 1 章开始听';
+  $('#resumeBtn').onclick = () => openReader(p ? p.n : book.chapters[0].n, p ? p.t : 0, true);
+  const ul = $('#chList'); ul.innerHTML = '';
+  for (const c of book.chapters) {
+    const li = document.createElement('li');
+    if (p && c.n < p.n) li.classList.add('done');
+    if (p && c.n === p.n) li.classList.add('cur');
+    li.innerHTML = '<span class="c"></span><span class="t"></span><span class="d"></span>';
+    li.querySelector('.t').textContent = c.title;
+    li.querySelector('.d').textContent = fmt(c.dur);
+    li.onclick = () => openReader(c.n, p && p.n === c.n ? p.t : 0, true);
+    ul.appendChild(li);
+    isCached(mp3Path(id, c.n)).then(y => y && li.querySelector('.c').classList.add('yes'));
+  }
+  const cur = ul.querySelector('.cur'); if (cur) cur.scrollIntoView({ block: 'center' });
+}
+$('#chBack').onclick = () => openLibrary();
+$('#dlBtn').onclick = async () => {
+  const btn = $('#dlBtn'), book = state.book;
+  if (btn.dataset.busy) { state.dlAbort = true; return; }
+  const mb = Math.round(book.chapters.reduce((a, c) => a + (c.dur || 0), 0) * 4 / 1024);
+  if (!confirm(`把全书下载到手机上，没网也能听。\n大约 ${mb} MB，建议连着 Wi-Fi。\n下载中可以随时点按钮停止，已下载的会保留。`)) return;
+  btn.dataset.busy = 1; state.dlAbort = false;
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  let done = 0;
+  for (const c of book.chapters) {
+    if (state.dlAbort) break;
+    try { await getFile(chPath(book.id, c.n)); await getFile(mp3Path(book.id, c.n)); } catch (e) { toast(`第 ${c.n} 章下载失败：${e.message}`); break; }
+    done++; btn.textContent = `停止 ${done}/${book.chapters.length}`;
+    const dot = $('#chList').children[c.n - book.chapters[0].n]?.querySelector('.c'); if (dot) dot.classList.add('yes');
+  }
+  delete btn.dataset.busy; btn.textContent = '下载离线';
+  toast(done === book.chapters.length ? '全书已下载，可以离线听了' : `已下载 ${done} 章`);
+};
+
+/* ---------- 阅读 + 播放 ---------- */
+async function chapterData(n) {
+  const b = state.book;
+  const [ch, blob] = await Promise.all([getJSON(chPath(b.id, n)), getFile(mp3Path(b.id, n)).then(r => r.blob())]);
+  return { n, ch, url: URL.createObjectURL(new Blob([blob], { type: 'audio/mpeg' })) };
+}
+function renderText(ch) {
+  const box = $('#text'); box.innerHTML = '';
+  state.spans = ch.segs.map(() => []);
+  let p = document.createElement('p'); p.className = 'h'; box.appendChild(p);
+  ch.segs.forEach(([, txt], i) => {
+    const parts = txt.split('\n');
+    parts.forEach((part, j) => {
+      if (j > 0) { p = document.createElement('p'); box.appendChild(p); }
+      if (!part) return;
+      const s = document.createElement('span'); s.textContent = part; s.dataset.i = i; p.appendChild(s); state.spans[i].push(s);
+    });
+  });
+  [...box.querySelectorAll('p')].forEach(el => { if (!el.textContent) el.remove(); });
+  state.segs = ch.segs.map(s => s[0] / 1000); state.cur = -1;
+}
+function useChapter(d, t, play) {
+  if (state.url && state.url !== d.url) URL.revokeObjectURL(state.url);
+  state.n = d.n; state.ch = d.ch; state.url = d.url; state.next = null;
+  audio.src = d.url;
+  audio.playbackRate = prefs.rate;
+  const start = () => { if (t) { try { audio.currentTime = t; } catch {} } };
+  audio.addEventListener('loadedmetadata', start, { once: true });
+  if (play) audio.play().catch(() => {});
+  renderText(d.ch);
+  $('#rdTitle').textContent = d.ch.title;
+  document.title = d.ch.title;
+  setMediaSession();
+  saveProgress();
+  window.scrollTo(0, 0);
+  prepareNext();
+}
+async function openReader(n, t = 0, play = false) {
+  show('reader');
+  $('#text').innerHTML = '<div class="loading">加载中…</div>';
+  $('#rdTitle').textContent = state.book.chapters.find(c => c.n === n)?.title || '';
+  try { useChapter(await chapterData(n), t, play); }
+  catch (e) { $('#text').innerHTML = `<div class="loading">加载失败：${e.message}</div>`; }
+}
+async function prepareNext() {
+  const idx = state.book.chapters.findIndex(c => c.n === state.n);
+  const nxt = state.book.chapters[idx + 1];
+  if (!nxt) return;
+  const forN = state.n;
+  try {
+    const d = await chapterData(nxt.n);   // 提前准备好下一章，锁屏时也能无缝接着播
+    if (state.n === forN) { if (state.next) URL.revokeObjectURL(state.next.url); state.next = d; } else URL.revokeObjectURL(d.url);
+  } catch {}
+  const after = state.book.chapters[idx + 2];        // 再预先缓存一章，没网时也不断
+  if (after) { getFile(chPath(state.book.id, after.n)).catch(() => {}); getFile(mp3Path(state.book.id, after.n)).catch(() => {}); }
+}
+function goChapter(delta, play = true) {
+  const idx = state.book.chapters.findIndex(c => c.n === state.n);
+  const target = state.book.chapters[idx + delta];
+  if (!target) { toast(delta > 0 ? '已经是最后一章' : '已经是第一章'); return false; }
+  if (delta === 1 && state.next && state.next.n === target.n) { useChapter(state.next, 0, play); return true; }
+  openReader(target.n, 0, play); return true;
+}
+audio.addEventListener('ended', () => {
+  if (state.sleepEnd) { state.sleepEnd = false; updateSleepBtn(); toast('定时结束，已停止'); saveProgress(); return; }
+  if (!goChapter(1, true)) { toast('全书听完了'); }
+});
+
+/* 高亮正在读的句子 */
+function findSeg(t) { let lo = 0, hi = state.segs.length - 1, r = 0; while (lo <= hi) { const m = (lo + hi) >> 1; if (state.segs[m] <= t + 0.15) { r = m; lo = m + 1; } else hi = m - 1; } return r; }
+let lastSave = 0, userScrollAt = 0;
+function onTime() {
+  const t = audio.currentTime, d = audio.duration || state.ch?.dur || 0;
+  if (!seeking) { $('#seek').value = d ? Math.round(t / d * 1000) : 0; }
+  $('#tCur').textContent = fmt(t); $('#tDur').textContent = fmt(d);
+  if (state.segs.length) {
+    const i = findSeg(t);
+    if (i !== state.cur) {
+      (state.spans[state.cur] || []).forEach(s => s.classList.remove('now'));
+      state.cur = i;
+      const spans = state.spans[i] || [];
+      spans.forEach(s => s.classList.add('now'));
+      if (prefs.follow && spans[0] && document.visibilityState === 'visible' && Date.now() - userScrollAt > 6000 && $('#reader').classList.contains('on')) {
+        const r = spans[0].getBoundingClientRect();
+        if (r.top < 90 || r.bottom > innerHeight - 220) window.scrollTo({ top: scrollY + r.top - innerHeight * 0.32, behavior: 'smooth' });
+      }
+    }
+  }
+  if (state.sleepAt && Date.now() >= state.sleepAt) { audio.pause(); state.sleepAt = 0; updateSleepBtn(); toast('定时结束，已停止'); }
+  if (Date.now() - lastSave > 5000) { lastSave = Date.now(); saveProgress(); updatePosition(); }
+}
+audio.addEventListener('timeupdate', onTime);
+audio.addEventListener('loadedmetadata', () => { onTime(); updatePosition(); });
+const setPlayIcon = () => { $('#playIco').innerHTML = audio.paused ? '<path d="M7 4v16l13-8z"/>' : '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>'; $('#playBtn').setAttribute('aria-label', audio.paused ? '播放' : '暂停'); };
+audio.addEventListener('play', () => { setPlayIcon(); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'; });
+audio.addEventListener('pause', () => { setPlayIcon(); saveProgress(); if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; });
+audio.addEventListener('error', () => toast('音频加载失败'));
+
+$('#text').addEventListener('click', e => {
+  const s = e.target.closest('span[data-i]'); if (!s) return;
+  audio.currentTime = state.segs[+s.dataset.i] + 0.01; userScrollAt = 0; $('#locate').classList.remove('on');
+  if (audio.paused) audio.play().catch(() => {});
+});
+const markUserScroll = () => { userScrollAt = Date.now(); if (prefs.follow && !audio.paused) $('#locate').classList.add('on'); };
+addEventListener('touchmove', markUserScroll, { passive: true });
+addEventListener('wheel', markUserScroll, { passive: true });
+$('#locate').onclick = () => { userScrollAt = 0; $('#locate').classList.remove('on'); const s = (state.spans[state.cur] || [])[0]; if (s) s.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+
+$('#playBtn').onclick = () => audio.paused ? audio.play().catch(() => {}) : audio.pause();
+$('#back15').onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 15); };
+$('#fwd30').onclick = () => { audio.currentTime = Math.min((audio.duration || 0) - 0.5, audio.currentTime + 30); };
+$('#prevCh').onclick = () => goChapter(-1, !audio.paused);
+$('#nextCh').onclick = () => goChapter(1, !audio.paused);
+$('#rdBack').onclick = () => { saveProgress(); openBook(state.book.id); };
+let seeking = false;
+$('#seek').addEventListener('input', () => { seeking = true; $('#tCur').textContent = fmt($('#seek').value / 1000 * (audio.duration || 0)); });
+$('#seek').addEventListener('change', () => { audio.currentTime = $('#seek').value / 1000 * (audio.duration || 0); seeking = false; userScrollAt = 0; });
+$('#followBtn').onclick = () => { prefs.follow = !prefs.follow; applyPrefs(); toast(prefs.follow ? '跟读：自动滚动到正在读的句子' : '已关闭自动滚动'); };
+
+/* 弹出面板：语速 / 定时 / 字体 */
+function openSheet(html, bind) { const s = $('#sheet'); s.innerHTML = html; bind(s); $('#sheetBg').classList.add('on'); s.classList.add('on'); }
+function closeSheet() { $('#sheetBg').classList.remove('on'); $('#sheet').classList.remove('on'); }
+$('#sheetBg').onclick = closeSheet;
+const chips = (items, active) => `<div class="chips">${items.map(([v, l]) => `<button data-v="${v}" class="${String(v) === String(active) ? 'act' : ''}">${l}</button>`).join('')}</div>`;
+$('#speedBtn').onclick = () => openSheet(`<h3>语速</h3>${chips([0.8, 1, 1.15, 1.25, 1.5, 1.75, 2].map(v => [v, v + '×']), prefs.rate)}`, s =>
+  s.querySelectorAll('button').forEach(b => b.onclick = () => { prefs.rate = +b.dataset.v; applyPrefs(); closeSheet(); }));
+function updateSleepBtn() {
+  const b = $('#sleepBtn');
+  b.classList.toggle('act', !!(state.sleepAt || state.sleepEnd));
+  b.textContent = state.sleepEnd ? '本章结束停' : state.sleepAt ? `${Math.ceil((state.sleepAt - Date.now()) / 60000)} 分钟后停` : '定时';
+}
+setInterval(updateSleepBtn, 20000);
+$('#sleepBtn').onclick = () => openSheet(`<h3>定时停止</h3>${chips([[0, '关闭'], [15, '15 分钟'], [30, '30 分钟'], [45, '45 分钟'], [60, '60 分钟'], [90, '90 分钟'], ['end', '本章结束']], state.sleepEnd ? 'end' : '')}`, s =>
+  s.querySelectorAll('button').forEach(b => b.onclick = () => {
+    const v = b.dataset.v; state.sleepEnd = v === 'end'; state.sleepAt = v === 'end' || v === '0' ? 0 : Date.now() + v * 60000;
+    updateSleepBtn(); closeSheet(); if (v !== '0') toast(state.sleepEnd ? '本章读完后停止' : `${v} 分钟后停止`);
+  }));
+$('#fontBtn').onclick = () => openSheet(`<h3>字号</h3>${chips([[16, '小'], [19, '中'], [22, '大'], [26, '特大']], prefs.font)}<h3>主题</h3>${chips([['auto', '跟随系统'], ['light', '日间'], ['dark', '夜间']], prefs.theme)}`, s => {
+  const [a, b] = s.querySelectorAll('.chips');
+  a.querySelectorAll('button').forEach(x => x.onclick = () => { prefs.font = +x.dataset.v; applyPrefs(); closeSheet(); });
+  b.querySelectorAll('button').forEach(x => x.onclick = () => { prefs.theme = x.dataset.v; applyPrefs(); closeSheet(); });
+});
+
+/* 锁屏 / 耳机控制 */
+function setMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+  const base = new URL('.', location.href).href;
+  navigator.mediaSession.metadata = new MediaMetadata({ title: state.ch.title, artist: state.book.title, album: state.book.title,
+    artwork: [{ src: base + 'icon-512.png', sizes: '512x512', type: 'image/png' }] });
+}
+function updatePosition() {
+  if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState || !audio.duration) return;
+  try { navigator.mediaSession.setPositionState({ duration: audio.duration, playbackRate: audio.playbackRate, position: Math.min(audio.currentTime, audio.duration) }); } catch {}
+}
+if ('mediaSession' in navigator) {
+  const h = (a, f) => { try { navigator.mediaSession.setActionHandler(a, f); } catch {} };
+  h('play', () => audio.play()); h('pause', () => audio.pause());
+  h('seekbackward', d => { audio.currentTime = Math.max(0, audio.currentTime - (d.seekOffset || 15)); updatePosition(); });
+  h('seekforward', d => { audio.currentTime = Math.min(audio.duration - 0.5, audio.currentTime + (d.seekOffset || 30)); updatePosition(); });
+  h('seekto', d => { audio.currentTime = d.seekTime; updatePosition(); });
+  h('previoustrack', () => goChapter(-1, true)); h('nexttrack', () => goChapter(1, true));
+}
+addEventListener('pagehide', saveProgress);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveProgress(); });
+
+/* ---------- 启动 ---------- */
+applyPrefs();
+if ('serviceWorker' in navigator && !LOCAL) navigator.serviceWorker.register('sw.js').catch(() => {});
+(async () => {
+  if (!LOCAL && !cfg.token) return openSetup();
+  // 打开 App 直接回到上次听的书
+  const last = Object.entries(progress).sort((a, b) => (b[1].at || 0) - (a[1].at || 0))[0];
+  if (last && !params.has('home')) {
+    try { await loadBook(last[0]); return openReader(last[1].n, last[1].t, false); } catch {}
+  }
+  openLibrary();
+})();
+</script>
+</body>
+</html>
