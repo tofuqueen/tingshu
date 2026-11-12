@@ -199,14 +199,17 @@ const state = { book: null, n: 0, ch: null, segs: [], spans: [], cur: -1, url: n
 
 /* ---------- 数据读取（带离线缓存） ---------- */
 const CACHE = 'ab-data-v1';
-const keyFor = path => new Request(`https://cache.local/${cfg.repo}/${path}`);
+// 每本书可以放在不同的仓库里：books/index.json 里写 "repo"，没写的就在主仓库
+let bookRepos = store.get('ab.bookRepos', {});
+const repoFor = path => { const m = /^books\/([^/]+)\//.exec(path); return (m && bookRepos[m[1]]) || cfg.repo; };
+const keyFor = path => new Request(`https://cache.local/${repoFor(path)}/${path}`);
 async function getFile(path, { fresh = false } = {}) {
   const cache = 'caches' in self ? await caches.open(CACHE) : null;
   if (cache && !fresh) { const hit = await cache.match(keyFor(path)); if (hit) return hit; }
   let res;
   try {
     if (LOCAL) res = await fetch(`../${path}`, { cache: 'no-store' });
-    else res = await fetch(`https://api.github.com/repos/${cfg.repo}/contents/${path}?ref=${encodeURIComponent(cfg.branch)}`,
+    else res = await fetch(`https://api.github.com/repos/${repoFor(path)}/contents/${path}?ref=${encodeURIComponent(cfg.branch)}`,
       { headers: { Authorization: `Bearer ${cfg.token}`, Accept: 'application/vnd.github.raw+json' }, cache: 'no-store' });
   } catch (e) {
     if (cache) { const hit = await cache.match(keyFor(path)); if (hit) return hit; }
@@ -214,7 +217,7 @@ async function getFile(path, { fresh = false } = {}) {
   }
   if (!res.ok) {
     if (cache) { const hit = await cache.match(keyFor(path)); if (hit) return hit; }
-    throw new Error(res.status === 401 ? '令牌无效或已过期' : res.status === 404 ? '找不到文件（检查令牌权限、仓库和分支）' : `读取失败（${res.status}）`);
+    throw new Error(res.status === 401 ? '令牌无效或已过期' : res.status === 404 ? `找不到文件（令牌可能还没有 ${repoFor(path).split('/')[1]} 仓库的读取权限）` : `读取失败（${res.status}）`);
   }
   if (cache) await cache.put(keyFor(path), res.clone()).catch(() => {});
   return res;
@@ -263,6 +266,7 @@ async function openLibrary() {
   const box = $('#books');
   try {
     const list = await getJSON('books/index.json', { fresh: true });
+    bookRepos = Object.fromEntries(list.filter(b => b.repo).map(b => [b.id, b.repo])); store.set('ab.bookRepos', bookRepos);
     box.innerHTML = '';
     for (const b of list) {
       const p = progress[b.id];
@@ -272,7 +276,7 @@ async function openLibrary() {
       el.querySelector('.title').textContent = b.title;
       el.querySelector('.muted').textContent = p ? `听到第 ${p.n} 章 · 共 ${b.total} 章` : `共 ${b.total} 章 · 还没开始`;
       el.querySelector('.bar i').style.width = `${p ? Math.round(p.n / b.total * 100) : 0}%`;
-      el.onclick = () => openBook(b.id);
+      el.onclick = () => openBook(b.id).catch(() => {});
       box.appendChild(el);
     }
     if (!list.length) box.innerHTML = '<p class="muted">书架是空的。</p>';
