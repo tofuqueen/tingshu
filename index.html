@@ -73,6 +73,7 @@ input { font: inherit; }
 #text { padding: 16px 20px calc(190px + env(safe-area-inset-bottom)); max-width: 720px; margin: 0 auto;
   font-size: var(--font); line-height: 1.9; letter-spacing: .02em; }
 #text p { margin: 0 0 .7em; text-indent: 2em; }
+#text p.sub { text-indent: 0; font-weight: 700; font-size: .85em; color: var(--accent); letter-spacing: .2em; margin: 1.4em 0 .5em; }
 #text p.h { text-indent: 0; font-weight: 700; font-size: 1.2em; margin: .4em 0 1em; }
 #text span { border-radius: 4px; transition: background .2s; }
 #text span.now { background: var(--hl); color: var(--hl-text); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
@@ -272,7 +273,11 @@ async function openLibrary() {
       const p = progress[b.id];
       const el = document.createElement('div'); el.className = 'card book';
       el.innerHTML = `<div class="cover"></div><div class="meta"><div class="title"></div><div class="muted"></div><div class="bar"><i></i></div></div>`;
-      el.querySelector('.cover').textContent = b.title;
+      const cover = el.querySelector('.cover');
+      cover.textContent = b.title.split('（')[0];
+      const COVERS = [['#7a3b23', '#b5532f'], ['#2f4f3a', '#5b8a5f'], ['#3b3a6b', '#6a68a8'], ['#5a3d1e', '#a07636'], ['#6b2e4a', '#a85a7e']];
+      const [c1, c2] = COVERS[list.indexOf(b) % COVERS.length];
+      cover.style.background = `linear-gradient(160deg, ${c1}, ${c2})`;
       el.querySelector('.title').textContent = b.title;
       el.querySelector('.muted').textContent = p ? `听到第 ${p.n} 章 · 共 ${b.total} 章` : `共 ${b.total} 章 · 还没开始`;
       el.querySelector('.bar i').style.width = `${p ? Math.round(p.n / b.total * 100) : 0}%`;
@@ -399,7 +404,8 @@ function renderText(ch) {
       const s = document.createElement('span'); s.textContent = part; s.dataset.i = i; p.appendChild(s); state.spans[i].push(s);
     });
   });
-  [...box.querySelectorAll('p')].forEach(el => { if (!el.textContent) el.remove(); });
+  const SUBS = ['原文', '白话翻译', '讲解', '导读', '译文'];
+  [...box.querySelectorAll('p')].forEach(el => { if (!el.textContent) el.remove(); else if (SUBS.includes(el.textContent.trim())) el.classList.add('sub'); });
   state.segs = ch.segs.map(s => s[0] / 1000); state.cur = -1;
 }
 function useChapter(d, t, play) {
